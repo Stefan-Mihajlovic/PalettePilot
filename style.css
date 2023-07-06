@@ -8,6 +8,10 @@
     font-family: 'Poppins', sans-serif;
 }
 
+body{
+    background-image: linear-gradient(45deg, black, rgb(90, 4, 43));
+}
+
 .logoBar{
     display: flex;
     align-items: center;
@@ -30,8 +34,6 @@
 }
 
 .container{
-    background-color: #0a0a0a;
-    background-image: linear-gradient(45deg, black, rgb(90, 4, 43));
     width: 375px;
 }
 
@@ -184,6 +186,7 @@ header #clear-btn:hover{
     margin-right: 5px;
     color: #fff;
     text-shadow: 0px 0px 10px black;
+    font-size: 0.86rem !important;
 }
 
 .value{
@@ -192,6 +195,7 @@ header #clear-btn:hover{
     margin-left: 5px;
     margin-top: 2px;
     text-shadow: 0px 0px 10px black;
+    font-size: 0.86rem !important;
 }
 
 span.close-popup{
