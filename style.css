@@ -1,0 +1,212 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap');
+
+* {
+    scroll-behavior: smooth;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Poppins', sans-serif;
+}
+
+.logoBar{
+    display: flex;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    padding-block: 5px;
+    padding-inline: 5px;
+    gap: 5px;
+}
+
+.logoBar img{
+    width: 40px;
+    aspect-ratio: 1 / 1;
+}
+
+.logoBar h2{
+    color: #fff;
+    margin-bottom: 4px;
+    font-weight: 300;
+}
+
+.container{
+    background-color: #0a0a0a;
+    background-image: linear-gradient(45deg, black, rgb(90, 4, 43));
+    width: 375px;
+}
+
+.container :where(.picker, header, .all-colors){
+    display: flex;
+    align-items: center;
+}
+
+.container .picker{
+    padding: 20px 0px 20px 0px;
+    justify-content: center;
+}
+
+.picker #picker-btn{
+    margin-right: 15px;
+}
+
+.picker #picker-btn, .picker #export-btn{
+    border: none;
+    outline: none;
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 6px 12px;
+    background-color: #FF006A;
+    border-radius: 10px;
+    transition: all .3s ease-in-out;
+    width: 130px;
+}
+
+.picker #picker-btn:hover, .picker #export-btn:hover{
+    background-color: #b1004a;
+}
+
+.colors-list{
+    margin: 10px 15px;
+}
+
+.colors-list header{
+    justify-content: space-between;
+}
+
+header .title{
+    font-size: 1rem;
+    color: #fff;
+}
+
+header #clear-btn{
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #FF006A;
+    transition: all .2s ease-in-out;
+}
+
+header #clear-btn:hover{
+    color: #b1004a;
+}
+
+.colors-list.hide{
+    display: none;
+}
+
+.colors-list .all-colors{
+    flex-wrap: wrap;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    margin: 15px 0 0 0;
+    padding-bottom: 20px;
+    gap: 5px;
+}
+
+.all-colors .color{
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    width: calc(100% / 3 - 4px);
+    transition: all .2s ease-in-out;
+    border-radius: 6px;
+    padding: 5px;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.all-colors .color:hover{
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.all-colors .rect{
+    height: 22px;
+    width: 22px;
+    aspect-ratio: 1 / 1 !important;
+    display: block;
+    margin-right: 3px;
+    border-radius: 3px;
+}
+
+.all-colors .color span{
+    font-size: 0.86rem;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.color-popup{
+    position: fixed;
+    top: 52px;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 300px;
+    background-color: #0a0a0a;
+    background-image: linear-gradient(45deg, black, rgb(90, 4, 43));
+    border-radius: 10px;
+    box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+}
+
+.color-popup-content{
+    padding: 20px;
+}
+
+.color-info{
+    display: flex;
+    align-items: center;
+}
+
+.color-preview{
+    width: 50px;
+    height: 50px;
+    aspect-ratio: 1 / 1 !important;
+    border-radius: 10px;
+    margin-right: 10px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.4);
+}
+
+.color-details{
+    flex-grow: 1;
+}
+
+.color-value{
+    display: flex;
+    align-items: center;
+    margin-bottom: 2px;
+}
+
+.color-value .value{
+    margin: 0px !important;
+}
+
+.label{
+    font-weight: bold;
+    margin-right: 5px;
+    color: #fff;
+    text-shadow: 0px 0px 10px black;
+}
+
+.value{
+    cursor: pointer;
+    color: #fff;
+    margin-left: 5px;
+    margin-top: 2px;
+    text-shadow: 0px 0px 10px black;
+}
+
+span.close-popup{
+    font-size: 13px;
+    margin-top: 2px;
+    background-color: white;
+    padding-bottom: 1px;
+    color: black;
+    aspect-ratio: 1 / 1;
+    width: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    float: right;
+    border-radius: 5px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+}
