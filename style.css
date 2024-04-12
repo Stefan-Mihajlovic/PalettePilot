@@ -34,7 +34,7 @@ body{
 }
 
 .container{
-    width: 375px;
+    width: 400px;
 }
 
 .container :where(.picker, header, .all-colors){
@@ -43,17 +43,20 @@ body{
 }
 
 .container .picker{
+    display: flex;
+    gap: 15px;
+    align-items: center;
     padding: 20px 0px 20px 0px;
     justify-content: center;
-}
-
-.picker #picker-btn{
-    margin-right: 15px;
 }
 
 .picker #picker-btn, .picker #export-btn{
     border: none;
     outline: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
     color: white;
     font-size: 1rem;
     cursor: pointer;
@@ -61,11 +64,25 @@ body{
     background-color: #FF006A;
     border-radius: 10px;
     transition: all .3s ease-in-out;
-    width: 130px;
+    width: 175px;
 }
 
 .picker #picker-btn:hover, .picker #export-btn:hover{
     background-color: #b1004a;
+}
+
+.picker button img{
+    filter: invert(1);
+}
+
+.picker #export-btn img{
+    width: 20px;
+}
+
+.picker #picker-btn img{
+    width: 18px;
+    margin-right: 2px;
+    margin-left: -5px;
 }
 
 .colors-list{
@@ -113,12 +130,22 @@ header #clear-btn:hover{
     width: calc(100% / 3 - 4px);
     transition: all .2s ease-in-out;
     border-radius: 6px;
-    padding: 5px;
     background-color: rgba(255, 255, 255, 0.1);
 }
 
 .all-colors .color:hover{
     background-color: rgba(255, 255, 255, 0.2);
+}
+
+.all-colors .color .hex{
+    width: 100%;
+}
+
+.all-colors .color .rect{
+    width: 30px;
+    aspect-ratio: 1 / 1;
+    margin: 5px;
+    margin-right: 0px;
 }
 
 .all-colors .rect{
