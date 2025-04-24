@@ -17,8 +17,7 @@ body{
     align-items: center;
     background-color: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(5px);
-    padding-block: 5px;
-    padding-inline: 5px;
+    padding: 5px;
     gap: 5px;
 }
 
@@ -29,7 +28,8 @@ body{
 
 .logoBar h2{
     color: #fff;
-    margin-bottom: 4px;
+    margin-bottom: 1px;
+    font-size: 1.3rem;
     font-weight: 300;
 }
 
@@ -50,7 +50,7 @@ body{
     justify-content: center;
 }
 
-.picker #picker-btn, .picker #export-btn{
+.picker button{
     border: none;
     outline: none;
     display: flex;
@@ -60,29 +60,29 @@ body{
     color: white;
     font-size: 1rem;
     cursor: pointer;
-    padding: 6px 12px;
+    padding: 7px 12px;
     background-color: #FF006A;
     border-radius: 10px;
     transition: all .3s ease-in-out;
     width: 175px;
 }
 
-.picker #picker-btn:hover, .picker #export-btn:hover{
+.picker button:hover{
     background-color: #b1004a;
 }
 
-.picker button img{
-    filter: invert(1);
-}
-
-.picker #export-btn img{
+.picker button svg{
     width: 20px;
+    height: 20px;
+}
+.picker button svg path{
+    fill: white;
 }
 
-.picker #picker-btn img{
+#picker-btn svg{
     width: 18px;
+    height: 18px;
     margin-right: 2px;
-    margin-left: -5px;
 }
 
 .colors-list{
@@ -144,7 +144,6 @@ header #clear-btn:hover{
 .all-colors .color .rect{
     width: 30px;
     aspect-ratio: 1 / 1;
-    margin: 5px;
     margin-right: 0px;
 }
 
@@ -154,6 +153,7 @@ header #clear-btn:hover{
     aspect-ratio: 1 / 1 !important;
     display: block;
     margin-right: 3px;
+    margin-left: 5px;
     border-radius: 3px;
 }
 
@@ -161,23 +161,54 @@ header #clear-btn:hover{
     font-size: 0.86rem;
     font-weight: 500;
     text-transform: uppercase;
+    padding: 6px;
 }
 
 .color-popup{
     position: fixed;
-    top: 52px;
+    top: 0px;
     left: 50%;
-    transform: translate(-50%, -50%);
+    transform: translateX(-50%);
     width: 300px;
     background-color: #0a0a0a;
     background-image: linear-gradient(45deg, black, rgb(90, 4, 43));
-    border-radius: 10px;
-    box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.5);
+    border-radius: 0px 0px 15px 15px;
+    border: 1px solid rgb(75, 75, 75);
+    border-top: none;
+    box-shadow: 0px 2px 15px black;
+    animation: popupAppear .15s ease;
     z-index: 9999;
+}
+
+@keyframes popupAppear {
+    from{ transform: translateY(-100%) translateX(-50%); }
+    to{ transform: translateY(0%) translateX(-50%); }
 }
 
 .color-popup-content{
     padding: 20px;
+}
+
+.color-popup .topText{
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin-top: 10px;
+    margin-bottom: -7px;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.7rem;
+    text-align: center;
+}
+
+.color-popup .topText svg{
+    width: 15px;
+    height: 15px;
+    margin-bottom: 2px;
+}
+.color-popup .topText svg path{
+    stroke: rgba(255, 255, 255, 0.5);
 }
 
 .color-info{
@@ -192,6 +223,7 @@ header #clear-btn:hover{
     border-radius: 10px;
     margin-right: 10px;
     box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .color-details{
@@ -205,7 +237,13 @@ header #clear-btn:hover{
 }
 
 .color-value .value{
+    border-radius: 5px;
+    padding: 2px;
+    transition: all .075s ease-in-out;
     margin: 0px !important;
+}
+.color-value .value:hover{
+    background-color: rgba(0, 0, 0, 0.3);
 }
 
 .label{
@@ -232,12 +270,20 @@ span.close-popup{
     padding-bottom: 1px;
     color: black;
     aspect-ratio: 1 / 1;
-    width: 20px;
+    width: 25px;
+    height: 25px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     float: right;
-    border-radius: 5px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, 0.35); 
     box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+    transition: all .075s ease-in-out, transform .3s ease-in-out;
+}
+
+span.close-popup:hover{
+    background-color: rgb(236, 236, 236);
+    transform: rotate(180deg);
 }
