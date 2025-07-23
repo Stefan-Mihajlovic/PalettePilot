@@ -1,5 +1,5 @@
 {
-    "manifest_version": 4,
+    "manifest_version": 3,
     "name": "Palette Pilot",
     "description": "PalettePilot - The ONE color picker extension you didn't know you needed!",
     "version": "1.0.3",
