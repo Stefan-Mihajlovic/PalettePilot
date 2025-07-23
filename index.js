@@ -170,9 +170,9 @@ exportBtn.addEventListener('click', exportColors);
 // Display picked colors on document load
 showColors();
 
-function toggleSettings(){
+document.querySelector('.toggle-settings').addEventListener('click', () => {
     document.querySelector('.picker').classList.toggle('hide');
     document.querySelector('.colors-list').classList.toggle('hide');
     document.querySelector('.settings-pane').classList.toggle('hide');
     document.querySelector('.toggle-settings').classList.toggle('active');
-}
+});
