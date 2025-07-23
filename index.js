@@ -3,6 +3,14 @@ const clearBtn = document.querySelector('#clear-btn');
 const colorList = document.querySelector('.all-colors');
 const exportBtn = document.querySelector('#export-btn');
 
+let quickPick = localStorage.getItem('quickPick') === 'true' || false;
+document.querySelector('#quickpick-input').checked = quickPick;
+// Event listener for quick pick toggle
+document.querySelector('#quickpick-input').addEventListener('change', (e) => {
+    quickPick = e.currentTarget.checked;
+    localStorage.setItem('quickPick', quickPick);
+});
+
 // Retrieving picked colors from localstorage or initializing an empty array
 let pickedColors = JSON.parse(localStorage.getItem('colors-list')) || [];
 
@@ -131,6 +139,14 @@ const activateEyeDropper = async () => {
             localStorage.setItem('colors-list', JSON.stringify(pickedColors));
         }
 
+        if(quickPick){
+            try{
+                await navigator.clipboard.writeText(sRGBHex);
+            }catch{
+                alert('Failed to copy text');
+            }
+        }
+
         showColors();
     } catch (error) {
         alert('Failed to copy to the color code!');
@@ -153,3 +169,10 @@ exportBtn.addEventListener('click', exportColors);
 
 // Display picked colors on document load
 showColors();
+
+function toggleSettings(){
+    document.querySelector('.picker').classList.toggle('hide');
+    document.querySelector('.colors-list').classList.toggle('hide');
+    document.querySelector('.settings-pane').classList.toggle('hide');
+    document.querySelector('.toggle-settings').classList.toggle('active');
+}
