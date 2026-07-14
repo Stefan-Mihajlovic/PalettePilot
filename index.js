@@ -1,208 +1,150 @@
-const pickerBtn = document.querySelector('#picker-btn');
-const clearBtn = document.querySelector('#clear-btn');
-const colorList = document.querySelector('.all-colors');
-const exportBtn = document.querySelector('#export-btn');
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+const PALETTE_PRODUCT = 'palette_pilot_pro';
+const API_URL = 'https://tvm-licensing-api-prod.optiflowzoffice.workers.dev';
+const PRO_URL = 'https://stefanmihajlovic.com/palette-pilot/#pro';
+const FREE_HISTORY_LIMIT = 6;
+const STATE_KEY = 'palettePilotWorkspaceV2';
+const LICENSE_KEY = 'palettePilotProLicenseKey';
+const INSTALLATION_ID_KEY = 'palettePilotProInstallationId';
+const ENTITLEMENT_KEY = 'palettePilotProEntitlement';
+const LICENSE_META_KEY = 'palettePilotProLicenseMeta';
+const PUBLIC_JWK = {kty:'EC',x:'AZpnxE_j3aaAUwUkzkVbagqa-j7HoVmCbsTLglwGvgs',y:'B9jdmU1uF6mSdkPwICYXfov8S5s3WeNQ_Y8susG6d9Y',crv:'P-256'};
+const PRO_FORMATS = new Set(['csv','scss','tailwind','json','svg','png','ase','pdf']);
+const TOKEN_NAMES = ['background','surface','text','primary','secondary','accent','success','warning','error'];
+const IS_SIDE_PANEL = new URLSearchParams(location.search).get('surface') === 'sidepanel';
 
-let quickPick = localStorage.getItem('quickPick') === 'true' || false;
-document.querySelector('#quickpick-input').checked = quickPick;
-// Event listener for quick pick toggle
-document.querySelector('#quickpick-input').addEventListener('change', (e) => {
-    quickPick = e.currentTarget.checked;
-    localStorage.setItem('quickPick', quickPick);
+const defaultState = () => ({
+    folders:[{id:'default',name:'My Palettes'}], palettes:[], activePaletteId:null,
+    semanticTokens:{background:'#120008',surface:'#2A0012',text:'#FFFFFF',primary:'#FF006A',secondary:'#8A174B',accent:'#FF8DBD',success:'#38C88A',warning:'#FFB020',error:'#F0445E'}
 });
+let state = defaultState();
+try {
+    const saved = JSON.parse(localStorage.getItem(STATE_KEY));
+    if (saved && Array.isArray(saved.folders) && Array.isArray(saved.palettes)) state = {...defaultState(),...saved};
+} catch {}
+let pickedColors = [];
+try { pickedColors = (JSON.parse(localStorage.getItem('colors-list')) || []).filter(validHex).map(normalizeHex); } catch {}
+let quickPick = localStorage.getItem('quickPick') === 'true';
+let quickExportFormat = localStorage.getItem('palettePilotExportFormat') || 'txt';
+let isProActive = false;
+let generatedColors = [];
+let extractedColors = [];
+let extractedTokens = [];
+let generatorMode = 'shades';
+let toastTimer;
+let proWelcomeTimer;
 
-// Retrieving picked colors from localstorage or initializing an empty array
-let pickedColors = JSON.parse(localStorage.getItem('colors-list')) || [];
+function validHex(value){return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)}
+function normalizeHex(value){return value.toUpperCase()}
+function saveState(){localStorage.setItem(STATE_KEY,JSON.stringify(state))}
+function saveHistory(){localStorage.setItem('colors-list',JSON.stringify(pickedColors))}
+function uid(prefix){return `${prefix}-${crypto.randomUUID()}`}
+function hexRgb(hex){const n=parseInt(hex.slice(1),16);return[(n>>16)&255,(n>>8)&255,n&255]}
+function rgbHex(r,g,b){return `#${[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('')}`.toUpperCase()}
+function hexToRgb(hex){const [r,g,b]=hexRgb(hex);return `rgb(${r}, ${g}, ${b})`}
+function rgbToHslValues(r,g,b){r/=255;g/=255;b/=255;const max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;let h=0;const l=(max+min)/2;const s=d===0?0:d/(1-Math.abs(2*l-1));if(d){if(max===r)h=60*(((g-b)/d)%6);else if(max===g)h=60*((b-r)/d+2);else h=60*((r-g)/d+4)}return[(h+360)%360,s*100,l*100]}
+function hexToHsl(hex){const [h,s,l]=rgbToHslValues(...hexRgb(hex));return `hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%)`}
+function hslToHex(h,s,l){s/=100;l/=100;const c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2;let p=[0,0,0];if(h<60)p=[c,x,0];else if(h<120)p=[x,c,0];else if(h<180)p=[0,c,x];else if(h<240)p=[0,x,c];else if(h<300)p=[x,0,c];else p=[c,0,x];return rgbHex(...p.map(v=>(v+m)*255))}
+function hexToOklch(hex){let [r,g,b]=hexRgb(hex).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});let l=Math.cbrt(.4122214708*r+.5363325363*g+.0514459929*b),m=Math.cbrt(.2119034982*r+.6806995451*g+.1073969566*b),s=Math.cbrt(.0883024619*r+.2817188376*g+.6299787005*b);const L=.2104542553*l+.793617785*m-.0040720468*s,a=1.9779984951*l-2.428592205*m+.4505937099*s,bb=.0259040371*l+.7827717662*m-.808675766*s,C=Math.hypot(a,bb),h=(Math.atan2(bb,a)*180/Math.PI+360)%360;return `oklch(${(L*100).toFixed(1)}% ${C.toFixed(3)} ${h.toFixed(1)})`}
+function mix(a,b,amount){const A=hexRgb(a),B=hexRgb(b);return rgbHex(...A.map((v,i)=>v+(B[i]-v)*amount))}
+function luminance(hex){return hexRgb(hex).map(v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4}).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0)}
+function contrast(a,b){const x=luminance(a),y=luminance(b);return(Math.max(x,y)+.05)/(Math.min(x,y)+.05)}
+function bestText(hex){return contrast(hex,'#FFFFFF')>=contrast(hex,'#000000')?'#FFFFFF':'#000000'}
+function currentColors(){const palette=state.palettes.find(p=>p.id===state.activePaletteId);return palette?.colors?.length?palette.colors:(isProActive?pickedColors:pickedColors.slice(-FREE_HISTORY_LIMIT))}
+function paletteById(id){return state.palettes.find(p=>p.id===id)}
+function uniqueColors(colors){return [...new Set(colors.filter(validHex).map(normalizeHex))]}
+function showToast(message,success=false){const toast=$('#toast');toast.textContent=message;toast.classList.remove('hide','success');toast.classList.toggle('success',success);clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.add('hide'),2600)}
+async function copy(text){try{await navigator.clipboard.writeText(text);showToast('Copied to clipboard.',true)}catch{showToast('Could not copy to clipboard.') }}
 
-// Variable to keep track of the current color popup
-let currentPopup = null;
+function storageGet(keys){return new Promise(resolve=>chrome.storage.local.get(keys,resolve))}
+function storageSet(values){return new Promise(resolve=>chrome.storage.local.set(values,resolve))}
+function storageRemove(keys){return new Promise(resolve=>chrome.storage.local.remove(keys,resolve))}
+function b64Bytes(value){const s=value.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(value.length/4)*4,'=');return Uint8Array.from(atob(s),c=>c.charCodeAt(0))}
+function bytesHex(bytes){return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('')}
+async function installationClaim(id){return bytesHex(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(id))))}
+async function verifyEntitlement(entitlement,installationId){if(!entitlement?.token||typeof entitlement.expiresAt!=='number')return null;try{const [a,b,c]=entitlement.token.split('.'),header=JSON.parse(new TextDecoder().decode(b64Bytes(a))),payload=JSON.parse(new TextDecoder().decode(b64Bytes(b))),now=Math.floor(Date.now()/1000);if(header.alg!=='ES256'||header.typ!=='PPL-ENT'||payload.product!==PALETTE_PRODUCT||payload.plan!=='lifetime'||payload.exp<=now||entitlement.expiresAt<=now||payload.installation!==await installationClaim(installationId))return null;const key=await crypto.subtle.importKey('jwk',PUBLIC_JWK,{name:'ECDSA',namedCurve:'P-256'},false,['verify']);return await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,b64Bytes(c),new TextEncoder().encode(`${a}.${b}`))?payload:null}catch{return null}}
+async function api(path,body){const response=await fetch(`${API_URL}${path}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({product:PALETTE_PRODUCT,...body})}),data=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(data.error?.message||'Could not contact the license server.');error.code=data.error?.code;error.status=response.status;throw error}return data}
+async function installationId(){const stored=await storageGet(INSTALLATION_ID_KEY);if(typeof stored[INSTALLATION_ID_KEY]==='string')return stored[INSTALLATION_ID_KEY];const id=crypto.randomUUID();await storageSet({[INSTALLATION_ID_KEY]:id});return id}
+function licenseMessage(message='',success=false){$('#license-message').textContent=message;$('#license-message').classList.toggle('success',success)}
+function licenseButtons(disabled){['#activate-pro','#get-pro','#purchase-details','#transfer-pro'].forEach(id=>$(id).disabled=disabled)}
+function applyProState(active,license=null,offline=false){isProActive=!!active;$('#pro-badge').classList.toggle('hide',!active);$('#pro-inactive').classList.toggle('hide',active);$('#pro-active').classList.toggle('hide',!active);$('#pro-status').textContent=active?'Active':'Free';$('#pro-status').classList.toggle('active',active);$('#history-limit').classList.toggle('hide',active);$$('.pro-feature').forEach(el=>el.classList.toggle('locked',!active));$$('[data-pro-format]').forEach(el=>{el.disabled=!active;el.classList.toggle('disabled',!active)});$$('.pro-only').forEach(el=>el.classList.toggle('disabled',!active));if(!active&&PRO_FORMATS.has(quickExportFormat))quickExportFormat='txt';if(active){$('#pro-summary').textContent=`Lifetime Pro${license?.lastFour?` •••• ${license.lastFour}`:''} is active on this installation.`;licenseMessage(offline?'Offline verification active. We will sync again when online.':'License verified.',true)}syncQuickExport();renderAll()}
+function hideProWelcome(){const welcome=$('#pro-welcome');if(welcome.classList.contains('hide')||welcome.classList.contains('is-leaving'))return;clearTimeout(proWelcomeTimer);welcome.classList.remove('is-visible');welcome.classList.add('is-leaving');setTimeout(()=>{welcome.classList.add('hide');welcome.classList.remove('is-leaving');const focusTarget=isProActive?$('#transfer-pro'):$('#activate-pro');if(focusTarget&&!focusTarget.closest('.hide'))focusTarget.focus()},320)}
+function showProWelcome(){const welcome=$('#pro-welcome');closeLicenseTransfer();clearTimeout(proWelcomeTimer);welcome.classList.remove('hide','is-leaving');void welcome.offsetWidth;welcome.classList.add('is-visible');proWelcomeTimer=setTimeout(hideProWelcome,7000);setTimeout(()=>{if(welcome.classList.contains('is-visible'))$('#dismiss-pro-welcome').focus()},620)}
+async function activateLicense(){const key=$('#license-key-input').value.trim().toUpperCase();if(!/^PPL(?:-[A-Z0-9]{5}){5}$/.test(key)){licenseMessage('Enter a valid PPL license key.');return}licenseButtons(true);licenseMessage('Activating this installation…');try{const id=await installationId(),result=await api('/v1/license/activate',{licenseKey:key,installationId:id,extensionVersion:chrome.runtime.getManifest().version});if(!await verifyEntitlement(result.entitlement,id))throw new Error('Invalid entitlement.');await storageSet({[LICENSE_KEY]:key,[ENTITLEMENT_KEY]:result.entitlement,[LICENSE_META_KEY]:result.license});applyProState(true,result.license);showProWelcome()}catch(error){licenseMessage(({license_not_found:'That license key could not be found.',activation_limit_reached:'This key is already active on three installations.'})[error.code]||error.message)}finally{licenseButtons(false)}}
+async function validateLicense(){const stored=await storageGet([LICENSE_KEY,INSTALLATION_ID_KEY,ENTITLEMENT_KEY,LICENSE_META_KEY]),key=stored[LICENSE_KEY];if(typeof key!=='string'){applyProState(false);return}$('#license-key-input').value=key;const id=await installationId(),cached=await verifyEntitlement(stored[ENTITLEMENT_KEY],id);if(cached)applyProState(true,stored[LICENSE_META_KEY],true);try{const result=await api('/v1/license/validate',{licenseKey:key,installationId:id,extensionVersion:chrome.runtime.getManifest().version});if(!await verifyEntitlement(result.entitlement,id))throw new Error('Invalid entitlement.');await storageSet({[ENTITLEMENT_KEY]:result.entitlement,[LICENSE_META_KEY]:result.license});applyProState(true,result.license)}catch(error){if(cached&&(!error.status||error.status>=500))return;await storageRemove([LICENSE_KEY,ENTITLEMENT_KEY,LICENSE_META_KEY]);applyProState(false);licenseMessage('This installation needs to be activated again.')}}
+function closeLicenseTransfer(){$('#transfer-license-modal').classList.add('hide')}
+async function openLicenseTransfer(){const stored=await storageGet(LICENSE_KEY),key=stored[LICENSE_KEY];if(!key){licenseMessage('The saved license key could not be found.');return}$('#transfer-license-key').textContent=key;$('#transfer-license-message').textContent='';$('#transfer-license-message').classList.add('hide');$('#copy-transfer-license').textContent='Copy';$('#confirm-transfer').textContent='Confirm transfer';$('#confirm-transfer').disabled=false;$('#transfer-license-modal').classList.remove('hide');$('#copy-transfer-license').focus()}
+async function copyTransferLicense(){const key=$('#transfer-license-key').textContent;try{await navigator.clipboard.writeText(key);$('#copy-transfer-license').textContent='Copied'}catch{const selection=window.getSelection(),range=document.createRange();range.selectNodeContents($('#transfer-license-key'));selection.removeAllRanges();selection.addRange(range);$('#copy-transfer-license').textContent='Selected'}}
+async function confirmLicenseTransfer(){const confirm=$('#confirm-transfer'),message=$('#transfer-license-message');licenseButtons(true);confirm.disabled=true;confirm.textContent='Transferring…';message.classList.add('hide');try{const stored=await storageGet([LICENSE_KEY,INSTALLATION_ID_KEY]);await api('/v1/license/deactivate',{licenseKey:stored[LICENSE_KEY],installationId:stored[INSTALLATION_ID_KEY]});await storageRemove([LICENSE_KEY,ENTITLEMENT_KEY,LICENSE_META_KEY]);$('#license-key-input').value='';closeLicenseTransfer();applyProState(false);licenseMessage('Transfer ready. Activate the copied key on your other device.',true)}catch(error){message.textContent=error.message;message.classList.remove('hide')}finally{licenseButtons(false);confirm.disabled=false;confirm.textContent='Confirm transfer'}}
 
-// Function to copy text to the clipboard
-const copyToClipboard = async (text, element) => {
-    try{
-        await navigator.clipboard.writeText(text);
-        element.innerText = 'Copied!';
-        // Resetting element text after 1 second
-        setTimeout(() => {
-            element.innerText = text;
-        }, 1000);
-    }catch (error){
-        alert('Failed to copy text');
-    }
-};
+function switchView(name){$$('.workspace-view').forEach(v=>v.classList.toggle('active',v.dataset.view===name));$$('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.viewTarget===name));if(name==='accessibility')renderAccessibility();if(name==='export')renderExport();if(name==='create')renderGenerator()}
+function requirePro(feature){if(isProActive)return true;switchView('settings');licenseMessage(`${feature} is included with Palette Pilot Pro.`);showToast(`${feature} is a Pro feature.`);return false}
+function renderStrip(container,colors){container.innerHTML='';container.classList.toggle('empty',!colors.length);if(!colors.length){container.innerHTML='<span>No colors saved yet.</span>';return}colors.forEach(color=>{const el=document.createElement('span');el.className='strip-color';el.style.background=color;el.dataset.color=color;el.title=color;el.addEventListener('click',()=>copy(color));container.append(el)})}
+function colorPopup(color){$('.color-popup')?.remove();const values=[['HEX',color],['RGB',hexToRgb(color)],['HSL',hexToHsl(color)],['OKLCH',hexToOklch(color)]],popup=document.createElement('div');popup.className='color-popup';popup.setAttribute('role','dialog');popup.setAttribute('aria-label',`Color details for ${color}`);popup.innerHTML=`<button class="popup-close" type="button" aria-label="Close color details">×</button><div class="popup-color"><span class="popup-swatch" style="background:${color}" aria-hidden="true"></span><div class="popup-values">${values.map(([label,value])=>`<button type="button" title="Copy ${label}"><small>${label}</small><strong>${value}</strong></button>`).join('')}</div></div>`;popup.querySelector('.popup-close').onclick=()=>popup.remove();$$('.popup-values button',popup).forEach((button,index)=>button.onclick=()=>copy(values[index][1]));document.body.append(popup)}
+function renderHistory(){const colors=isProActive?pickedColors:pickedColors.slice(-FREE_HISTORY_LIMIT),list=$('#recent-colors');$('#empty-history').classList.toggle('hide',colors.length>0);list.innerHTML='';colors.slice().reverse().forEach(color=>{const li=document.createElement('li');li.className='swatch-card';li.style.background=color;li.style.color=bestText(color);li.innerHTML=`<strong>${color}</strong>`;li.onclick=()=>colorPopup(color);list.append(li)});const active=paletteById(state.activePaletteId)||state.palettes[0];$('#home-palette-name').textContent=active?.name||'My Palette';renderStrip($('#home-palette-strip'),active?.colors||[])}
+function renderFolderOptions(){const current=$('#folder-filter').value||'all',options=state.folders.map(f=>`<option value="${f.id}">${escapeHtml(f.name)}</option>`).join('');$('#folder-filter').innerHTML=`<option value="all">All folders</option>${options}`;if([...$('#folder-filter').options].some(o=>o.value===current))$('#folder-filter').value=current;$('#palette-folder').innerHTML=options}
+function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function renderLibrary(){renderFolderOptions();const filter=$('#folder-filter').value||'all',palettes=state.palettes.filter(p=>filter==='all'||p.folderId===filter),root=$('#palette-library');if(!palettes.length){root.innerHTML='<div class="library-empty">No palettes here yet. Save recent colors or create a new palette.</div>';return}root.innerHTML=palettes.map(p=>`<article class="palette-card" data-id="${p.id}"><div class="palette-card-head"><div><h3>${escapeHtml(p.name)}</h3><small>${escapeHtml(state.folders.find(f=>f.id===p.folderId)?.name||'My Palettes')} · ${p.colors.length} colors</small></div><div class="palette-card-actions"><button data-action="load">Use</button><button data-action="edit">Edit</button><button data-action="delete">Delete</button></div></div><div class="palette-mini-strip">${p.colors.map(c=>`<span style="background:${c}" title="${c}"></span>`).join('')}</div></article>`).join('')}
+function openPaletteEditor(palette=null){if(!palette&&state.palettes.length&&!isProActive){requirePro('Unlimited named palettes');return}$('#palette-editor').classList.remove('hide');$('#palette-id').value=palette?.id||'';$('#palette-name').value=palette?.name||'';$('#palette-colors').value=(palette?.colors||currentColors()).join(', ');$('#palette-folder').value=palette?.folderId||state.folders[0].id;$('#palette-name').focus()}
+function savePaletteFromEditor(event){event.preventDefault();const id=$('#palette-id').value,name=$('#palette-name').value.trim(),colors=uniqueColors($('#palette-colors').value.split(/[\s,]+/));if(!name||!colors.length){showToast('Add a palette name and at least one HEX color.');return}if(id){const p=paletteById(id);Object.assign(p,{name,colors,folderId:$('#palette-folder').value})}else{const p={id:uid('palette'),name,colors,folderId:$('#palette-folder').value};state.palettes.push(p);state.activePaletteId=p.id}saveState();$('#palette-editor').classList.add('hide');renderAll();showToast('Palette saved.',true)}
+function saveRecentAsPalette(){const colors=isProActive?pickedColors:pickedColors.slice(-FREE_HISTORY_LIMIT);if(!colors.length){showToast('Pick some colors first.');return}let palette=paletteById(state.activePaletteId)||state.palettes[0];if(!palette){palette={id:uid('palette'),name:'My Palette',folderId:state.folders[0].id,colors:[...colors]};state.palettes.push(palette);state.activePaletteId=palette.id}else palette.colors=uniqueColors([...palette.colors,...colors]);saveState();renderAll();showToast('Recent colors saved.',true)}
+function startFolderEditor(){if(!requirePro('Unlimited folders'))return;if($('.folder-editor'))return;const form=document.createElement('form');form.className='folder-editor compact-form content-card';form.innerHTML='<label>Folder name<input type="text" maxlength="40" placeholder="Brand projects" required></label><div class="form-actions"><button class="small-button" type="submit">Save folder</button><button class="outline-button" type="button">Cancel</button></div>';form.onsubmit=e=>{e.preventDefault();const name=$('input',form).value.trim();if(name){state.folders.push({id:uid('folder'),name});saveState();form.remove();renderLibrary()}};$('.outline-button',form).onclick=()=>form.remove();$('.folder-toolbar').after(form);$('input',form).focus()}
 
-// Function to export colors as a text file
-const exportColors = () => {
-    const colorText = 'My Colors: \n\n' + pickedColors.join('\n');
-    const blob = new Blob([colorText], { type: 'text/plain'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'MyColors.txt';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-};
+function shades(base){const list=[];for(let i=5;i>=1;i--)list.push(mix(base,'#FFFFFF',i/6));list.push(base);for(let i=1;i<=5;i++)list.push(mix(base,'#000000',i/6));return uniqueColors(list)}
+function harmonies(base,type){const [h,s,l]=rgbToHslValues(...hexRgb(base));const map={complementary:[0,180],analogous:[-30,0,30],triadic:[0,120,240],split:[0,150,210],tetradic:[0,90,180,270]};return map[type].map(d=>hslToHex((h+d+360)%360,s,l))}
+function themeColors(base,dark=false){const [h,s]=rgbToHslValues(...hexRgb(base));return dark?[hslToHex(h,Math.min(s,35),6),hslToHex(h,Math.min(s,30),12),'#FFFFFF',base,mix(base,'#FFFFFF',.28),hslToHex((h+45)%360,80,62)]:['#FFFFFF',hslToHex(h,Math.min(s,22),96),'#17000A',base,mix(base,'#000000',.18),hslToHex((h+45)%360,80,48)]}
+function renderGenerator(){const base=normalizeHex($('#lab-color').value);$('#lab-color-value').textContent=base;$('#harmony-options').classList.toggle('hide',generatorMode!=='harmony');$('#gradient-options').classList.toggle('hide',generatorMode!=='gradient');$$('#generator-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.generator===generatorMode));const root=$('#generator-preview');if(generatorMode==='shades'){generatedColors=shades(base);$('#generator-title').textContent='Shades & Tints';root.innerHTML=`<div class="shade-grid">${generatedColors.map(c=>`<div class="shade" style="background:${c};color:${bestText(c)}"><span>${c}</span></div>`).join('')}</div>`}else if(generatorMode==='harmony'){generatedColors=harmonies(base,$('#harmony-type').value);$('#generator-title').textContent='Color Harmony';root.innerHTML=`<div class="large-swatches">${generatedColors.map(c=>`<div class="large-swatch" style="background:${c};color:${bestText(c)}"><span>${c}</span></div>`).join('')}</div>`}else if(generatorMode==='gradient'){const angle=$('#gradient-angle').value,colors=harmonies(base,'analogous');generatedColors=colors;$('#gradient-angle-value').textContent=`${angle}°`;$('#generator-title').textContent='Gradient Builder';const css=`linear-gradient(${angle}deg, ${colors.join(', ')})`;root.innerHTML=`<div class="gradient-preview" style="background:${css}"><code>${css}</code></div>`}else{const light=themeColors(base),dark=themeColors(base,true);generatedColors=uniqueColors([...light,...dark]);$('#generator-title').textContent='Light & Dark Themes';root.innerHTML=`<div class="theme-pair">${[['Light',light],['Dark',dark]].map(([name,colors])=>`<div class="theme-card" style="background:${colors[0]};color:${colors[2]}"><h3>${name}</h3>${['Background','Surface','Text','Primary','Secondary','Accent'].map((n,i)=>`<div class="theme-token"><span>${n}</span><i style="background:${colors[i]}"></i></div>`).join('')}</div>`).join('')}</div>`}}
+function addGenerated(){if(!requirePro('Color generation'))return;let p=paletteById(state.activePaletteId)||state.palettes[0];if(!p){p={id:uid('palette'),name:'Generated Palette',folderId:state.folders[0].id,colors:[]};state.palettes.push(p);state.activePaletteId=p.id}p.colors=uniqueColors([...p.colors,...generatedColors]);saveState();renderAll();showToast('Generated colors added.',true)}
 
-// Function to create the color popup
-const createColorPopup = (color) => {
-    const popup = document.createElement('div');
-    popup.classList.add('color-popup');
-    popup.style.backgroundImage = `linear-gradient(45deg, black, ${color})`;
-    popup.innerHTML = `
-        <div class="color-popup-content">
-            <span class="close-popup">x</span>
-            <div class="color-info">
-                <div class="color-preview" style="background: ${color};">
-                    <input type="color" value="${color}"/>
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-                        <path d="M341.6 29.2L240.1 130.8l-9.4-9.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3l-9.4-9.4L482.8 170.4c39-39 39-102.2 0-141.1s-102.2-39-141.1 0zM55.4 323.3c-15 15-23.4 35.4-23.4 56.6v42.4L5.4 462.2c-8.5 12.7-6.8 29.6 4 40.4s27.7 12.5 40.4 4L89.7 480h42.4c21.2 0 41.6-8.4 56.6-23.4L309.4 335.9l-45.3-45.3L143.4 411.3c-3 3-7.1 4.7-11.3 4.7H96V379.9c0-4.2 1.7-8.3 4.7-11.3L221.4 247.9l-45.3-45.3L55.4 323.3z"/>
-                    </svg>
-                </div>
-                <div class="color-details">
-                    <div class="color-value">
-                        <span class="label">Hex:</span>
-                        <span class="value hex" data-color="${color}">${color}</span>
-                    </div>
-                    <div class="color-value">
-                        <span class="label">RGB:</span>
-                        <span class="value rgb" data-color="${color}">${hexToRgb(color)}</span>
-                    </div>
-                </div>
-            </div>
-            <span class="topText"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 16V4C3 2.89543 3.89543 2 5 2H15M9 22H18C19.1046 22 20 21.1046 20 20V8C20 6.89543 19.1046 6 18 6H9C7.89543 6 7 6.89543 7 8V20C7 21.1046 7.89543 22 9 22Z" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Click the values to copy them</span>
-        </div>
-    `;
+function pageColorExtractor(){const toHex=value=>{if(!value||value==='transparent'||/^rgba\([^)]*,\s*0(?:\.0+)?\s*\)$/i.test(value))return null;const m=value.match(/rgba?\((\d+)[, ]+(\d+)[, ]+(\d+)/);return m?`#${[m[1],m[2],m[3]].map(n=>(+n).toString(16).padStart(2,'0')).join('')}`.toUpperCase():/^#[0-9a-f]{6}$/i.test(value)?value.toUpperCase():null},counts=new Map(),add=value=>{const hex=toHex(value);if(hex)counts.set(hex,(counts.get(hex)||0)+1)},elements=[...document.querySelectorAll('*')].slice(0,2500);for(const element of elements){const s=getComputedStyle(element);['color','backgroundColor','borderTopColor','borderRightColor','borderBottomColor','borderLeftColor','outlineColor'].forEach(p=>add(s[p]))}const root=getComputedStyle(document.documentElement),tokens=[];for(let i=0;i<root.length;i++){const name=root[i];if(name.startsWith('--')){const value=root.getPropertyValue(name).trim(),hex=toHex(value);if(hex){tokens.push({name,value:hex});add(hex)}}}return{colors:[...counts].sort((a,b)=>b[1]-a[1]).slice(0,12).map(([color])=>color),tokens:tokens.slice(0,30),title:document.title}}
+async function extractPage(){if(!requirePro('Page palette extraction'))return;try{showToast('Analyzing the current page…');const [tab]=await chrome.tabs.query({active:true,currentWindow:true});if(!tab?.id||!/^https?:/.test(tab.url||''))throw new Error('Open Palette Pilot from the toolbar on the page you want to extract.');const [{result}]=await chrome.scripting.executeScript({target:{tabId:tab.id},func:pageColorExtractor});extractedColors=uniqueColors(result.colors);extractedTokens=result.tokens||[];renderExtraction(`Page · ${result.title}`)}catch(error){showToast(error.message||'Could not extract this page.')}}
+function extractImage(file){if(!requirePro('Image palette extraction'))return;const reader=new FileReader();reader.onload=()=>{const image=new Image();image.onload=()=>{const size=128,scale=Math.min(size/image.width,size/image.height,1),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.width*scale));canvas.height=Math.max(1,Math.round(image.height*scale));const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(image,0,0,canvas.width,canvas.height);const data=ctx.getImageData(0,0,canvas.width,canvas.height).data,bins=new Map();for(let i=0;i<data.length;i+=16){if(data[i+3]<160)continue;const key=[data[i],data[i+1],data[i+2]].map(v=>Math.min(255,Math.round(v/32)*32)).join(',');bins.set(key,(bins.get(key)||0)+1)}extractedColors=[...bins].sort((a,b)=>b[1]-a[1]).map(([key])=>rgbHex(...key.split(',').map(Number))).filter((c,i,a)=>a.slice(0,i).every(x=>Math.sqrt(hexRgb(x).reduce((s,v,j)=>s+(v-hexRgb(c)[j])**2,0))>42)).slice(0,10);extractedTokens=[];$('#image-preview').src=reader.result;renderExtraction(`Image · ${file.name}`,true)};image.src=reader.result};reader.readAsDataURL(file)}
+function renderExtraction(source,showImage=false){$('#extraction-results-card').classList.remove('hide');$('#extraction-source').textContent=source;$('#image-preview-wrap').classList.toggle('hide',!showImage);$('#extracted-colors').innerHTML=extractedColors.map(c=>`<div class="large-swatch" style="background:${c};color:${bestText(c)}"><span>${c}</span></div>`).join('');$('#extracted-tokens').innerHTML=extractedTokens.map(t=>`<div class="token-row"><i class="token-dot" style="background:${t.value}"></i><code>${escapeHtml(t.name)}</code><span>${t.value}</span></div>`).join('');showToast(`${extractedColors.length} colors extracted.`,true)}
+function saveExtraction(){if(!extractedColors.length)return;const p={id:uid('palette'),name:'Extracted Palette',folderId:state.folders[0].id,colors:extractedColors};if(state.palettes.length&&!isProActive){requirePro('Unlimited named palettes');return}state.palettes.push(p);state.activePaletteId=p.id;saveState();renderAll();showToast('Extracted palette saved.',true)}
 
-    // Event listener za color input - ažurira sve vrednosti u popup-u
-    const colorInput = popup.querySelector('input[type="color"]');
-    colorInput.addEventListener('input', (e) => {
-        const newColor = e.target.value;
-        
-        // Ažuriraj background popup-a
-        popup.style.backgroundImage = `linear-gradient(45deg, black, ${newColor})`;
-        
-        // Ažuriraj color-preview background
-        const colorPreview = popup.querySelector('.color-preview');
-        colorPreview.style.background = newColor;
-        
-        // Ažuriraj HEX vrednost
-        const hexValue = popup.querySelector('.value.hex');
-        hexValue.innerText = newColor;
-        hexValue.dataset.color = newColor;
-        
-        // Ažuriraj RGB vrednost
-        const rgbValue = popup.querySelector('.value.rgb');
-        rgbValue.innerText = hexToRgb(newColor);
-        rgbValue.dataset.color = newColor;
-    });
+function renderBasicContrast(){let fg=normalizeHex($('#foreground-hex').value),bg=normalizeHex($('#background-hex').value);if(!validHex(fg))fg='#FFFFFF';if(!validHex(bg))bg='#5A042B';$('#foreground-color').value=fg;$('#background-color').value=bg;const ratio=contrast(fg,bg);$('#contrast-sample').style.cssText=`color:${fg};background:${bg}`;const checks=[['AA text',ratio>=4.5],['AA large',ratio>=3],['AAA text',ratio>=7],['AAA large',ratio>=4.5]];$('#contrast-score').innerHTML=`<div class="score-ratio"><strong>${ratio.toFixed(2)}:1</strong><small>contrast</small></div>${checks.map(([n,p])=>`<div class="score-badge ${p?'pass':'fail'}"><strong>${p?'Pass':'Fail'}</strong><small>${n}</small></div>`).join('')}`}
+function simulate(hex,mode){const [r,g,b]=hexRgb(hex),mat={protanopia:[[.567,.433,0],[.558,.442,0],[0,.242,.758]],deuteranopia:[[.625,.375,0],[.7,.3,0],[0,.3,.7]],tritanopia:[[.95,.05,0],[0,.433,.567],[0,.475,.525]],achromatopsia:[[.299,.587,.114],[.299,.587,.114],[.299,.587,.114]]}[mode];return rgbHex(...mat.map(row=>row[0]*r+row[1]*g+row[2]*b))}
+function renderAccessibility(){renderBasicContrast();const colors=currentColors().slice(0,8),matrix=$('#contrast-matrix');if(!colors.length){matrix.innerHTML='<div class="empty-state">Save or pick colors to build a contrast matrix.</div>'}else matrix.innerHTML=colors.map(bg=>`<div class="matrix-row">${colors.map(fg=>{const ratio=contrast(fg,bg);return`<div class="matrix-cell" style="background:${bg};color:${fg}" title="${fg} on ${bg}: ${ratio.toFixed(2)}">${ratio.toFixed(1)}</div>`}).join('')}</div>`).join('');const mode=$('#vision-mode').value,source=colors.length?colors:['#FF006A','#5A042B','#FFFFFF'];$('#vision-preview').innerHTML=`<div class="vision-row"><small>Original</small><div class="vision-strip">${source.map(c=>`<span style="background:${c}"></span>`).join('')}</div></div><div class="vision-row"><small>${mode[0].toUpperCase()+mode.slice(1)}</small><div class="vision-strip">${source.map(c=>`<span style="background:${simulate(c,mode)}"></span>`).join('')}</div></div>`}
 
-    // Close button inside the popup
-    const closePopup = popup.querySelector('.close-popup');
-    closePopup.addEventListener('click', () => {
-        document.body.removeChild(popup);
-        currentPopup = null;
-    });
+function colorDetails(colors){return colors.map((hex,i)=>({name:`color-${i+1}`,hex,rgb:hexToRgb(hex),hsl:hexToHsl(hex),oklch:hexToOklch(hex)}))}
+function textExport(name,colors,format){const d=colorDetails(colors),slug=name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'palette';if(format==='txt')return{blob:new Blob([`${name}\n\n${d.map(c=>`${c.hex} · ${c.rgb} · ${c.hsl} · ${c.oklch}`).join('\n')}\n`],{type:'text/plain'}),ext:'txt'};if(format==='css')return{blob:new Blob([`:root {\n${d.map(c=>`  --${slug}-${c.name}: ${c.hex};`).join('\n')}\n}\n`],{type:'text/css'}),ext:'css'};if(format==='csv')return{blob:new Blob([`name,hex,rgb,hsl,oklch\n${d.map(c=>`${c.name},${c.hex},"${c.rgb}","${c.hsl}","${c.oklch}"`).join('\n')}`],{type:'text/csv'}),ext:'csv'};if(format==='scss')return{blob:new Blob([d.map(c=>`$${slug}-${c.name}: ${c.hex};`).join('\n')+'\n'],{type:'text/x-scss'}),ext:'scss'};if(format==='tailwind')return{blob:new Blob([`export default {\n  theme: {\n    extend: {\n      colors: {\n        '${slug}': {\n${d.map((c,i)=>`          ${i+1}00: '${c.hex}',`).join('\n')}\n        }\n      }\n    }\n  }\n};\n`],{type:'text/javascript'}),ext:'js'};return{blob:new Blob([JSON.stringify({name,colors:d,semanticTokens:state.semanticTokens},null,2)],{type:'application/json'}),ext:'json'}}
+function svgExport(name,colors){const width=800,height=360,sw=width/colors.length,rects=colors.map((c,i)=>`<rect x="${i*sw}" y="90" width="${sw+1}" height="190" fill="${c}"/><text x="${i*sw+sw/2}" y="315" text-anchor="middle" font-family="Arial" font-size="16" fill="#222">${c}</text>`).join('');return new Blob([`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="white"/><text x="40" y="52" font-family="Arial" font-weight="700" font-size="28">${escapeHtml(name)}</text>${rects}</svg>`],{type:'image/svg+xml'})}
+async function pngExport(name,colors){const canvas=document.createElement('canvas');canvas.width=1200;canvas.height=600;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,1200,600);ctx.fillStyle='#17000A';ctx.font='bold 42px Arial';ctx.fillText(name,60,72);const w=1080/colors.length;colors.forEach((c,i)=>{ctx.fillStyle=c;ctx.fillRect(60+i*w,120,w+1,330);ctx.fillStyle='#17000A';ctx.font='20px Arial';ctx.textAlign='center';ctx.fillText(c,60+i*w+w/2,500)});return new Promise(resolve=>canvas.toBlob(resolve,'image/png'))}
+function aseExport(colors){const blocks=colors.map((hex,i)=>{const name=`Color ${i+1}`,nameLen=name.length+1,len=2+nameLen*2+4+12+2,buf=new ArrayBuffer(6+len),v=new DataView(buf);v.setUint16(0,1);v.setUint32(2,len);v.setUint16(6,nameLen);[...name].forEach((c,j)=>v.setUint16(8+j*2,c.charCodeAt(0)));let o=8+(nameLen-1)*2;v.setUint16(o,0);o+=2;['R','G','B',' '].forEach((c,j)=>v.setUint8(o+j,c.charCodeAt(0)));o+=4;hexRgb(hex).forEach(n=>{v.setFloat32(o,n/255);o+=4});v.setUint16(o,2);return new Uint8Array(buf)}),total=12+blocks.reduce((s,b)=>s+b.length,0),out=new Uint8Array(total),v=new DataView(out.buffer);'ASEF'.split('').forEach((c,i)=>v.setUint8(i,c.charCodeAt(0)));v.setUint16(4,1);v.setUint16(6,0);v.setUint32(8,blocks.length);let o=12;blocks.forEach(b=>{out.set(b,o);o+=b.length});return new Blob([out],{type:'application/octet-stream'})}
+function pdfExport(name,colors){const safe=name.normalize('NFKD').replace(/[^\x20-\x7E]/g,'').replace(/[()\\]/g,' '),parts=['q','1 1 1 rg','0 0 612 792 re f','Q','BT /F1 24 Tf 40 742 Td ('+safe+') Tj ET'];const w=532/colors.length;colors.forEach((c,i)=>{const [r,g,b]=hexRgb(c).map(v=>(v/255).toFixed(3));parts.push(`${r} ${g} ${b} rg ${(40+i*w).toFixed(2)} 400 ${w.toFixed(2)} 280 re f`);parts.push(`0 0 0 rg BT /F1 10 Tf ${(45+i*w).toFixed(2)} 370 Td (${c}) Tj ET`)});const stream=parts.join('\n'),objects=[`1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj`,`2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj`,`3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >> endobj`,`4 0 obj << /Length ${stream.length} >> stream\n${stream}\nendstream endobj`,`5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj`];let pdf='%PDF-1.4\n',offsets=[0];objects.forEach(o=>{offsets.push(pdf.length);pdf+=o+'\n'});const xref=pdf.length;pdf+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n${offsets.slice(1).map(o=>String(o).padStart(10,'0')+' 00000 n ').join('\n')}\ntrailer << /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;return new Blob([pdf],{type:'application/pdf'})}
+function download(blob,filename){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+async function exportPalette(format,sourceId=null){if(PRO_FORMATS.has(format)&&!requirePro(`${format.toUpperCase()} export`))return;const palette=sourceId?paletteById(sourceId):null,name=palette?.name||'Palette Pilot Colors',colors=palette?.colors||currentColors();if(!colors.length){showToast('Pick or save some colors first.');return}const slug=name.replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'')||'PalettePilot';let blob,ext;if(['txt','css','csv','scss','tailwind','json'].includes(format)){({blob,ext}=textExport(name,colors,format))}else if(format==='svg'){blob=svgExport(name,colors);ext='svg'}else if(format==='png'){blob=await pngExport(name,colors);ext='png'}else if(format==='ase'){blob=aseExport(colors);ext='ase'}else{blob=pdfExport(name,colors);ext='pdf'}download(blob,`${slug}.${ext}`);showToast(`${format.toUpperCase()} export ready.`,true)}
+function renderTokens(){const root=$('#semantic-tokens');root.innerHTML=TOKEN_NAMES.map(name=>`<label class="semantic-field"><input type="color" data-token="${name}" value="${state.semanticTokens[name]}"><span>${name}</span></label>`).join('');$$('[data-token]',root).forEach(input=>input.oninput=()=>{state.semanticTokens[input.dataset.token]=input.value.toUpperCase();saveState()})}
+function renderExport(){const select=$('#export-palette'),old=select.value;select.innerHTML=`<option value="">Recent colors</option>${state.palettes.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}`;if([...select.options].some(o=>o.value===old))select.value=old;const palette=paletteById(select.value),colors=palette?.colors||currentColors();renderStrip($('#export-preview'),colors);$('#export-color-count').textContent=`${colors.length} color${colors.length===1?'':'s'}`;renderTokens()}
+function autoTokens(){if(!requirePro('Semantic color tokens'))return;const colors=currentColors();if(!colors.length){showToast('Pick or save colors first.');return}const primary=colors[0],secondary=colors[1]||mix(primary,'#000',.25),accent=colors[2]||mix(primary,'#fff',.35);state.semanticTokens={...state.semanticTokens,primary,secondary,accent,background:mix(primary,'#000',.88),surface:mix(primary,'#000',.72),text:'#FFFFFF'};saveState();renderTokens();showToast('Semantic tokens mapped.',true)}
+function renderAll(){renderHistory();renderLibrary();renderExport();renderAccessibility()}
 
-    // Event listeners to copy color values to clipboard
-    const colorValues = popup.querySelectorAll('.value');
-    colorValues.forEach((value) => {
-        value.addEventListener('click', (e) => {
-            const text = e.currentTarget.innerText;
-            copyToClipboard(text, e.currentTarget);
-        });
-    });
+function configureSidePanelButton(){const button=$('#open-side-panel'),icon=$('use',button);if(!IS_SIDE_PANEL)return;button.classList.remove('pro-only','disabled');button.classList.add('side-panel-open');button.title='Close side-panel workspace';button.setAttribute('aria-label','Close side-panel workspace');icon.setAttribute('href','#icon-close')}
+async function toggleSidePanel(){try{const win=await chrome.windows.getCurrent();if(IS_SIDE_PANEL){if(typeof chrome.sidePanel.close==='function')await chrome.sidePanel.close({windowId:win.id});else window.close();return}if(!requirePro('Side-panel workspace'))return;await chrome.sidePanel.open({windowId:win.id})}catch{showToast(IS_SIDE_PANEL?'Could not close the side panel.':'Pin Palette Pilot and try opening the side panel again.')}}
 
-    return popup;
-};
+function bindEvents(){
+    $$('.nav-item').forEach(b=>b.onclick=()=>switchView(b.dataset.viewTarget));$$('[data-view-link]').forEach(b=>b.onclick=()=>switchView(b.dataset.viewLink));$('#settings-button').onclick=()=>switchView('settings');
+    $('#picker-btn').onclick=async()=>{document.body.classList.add('picking');try{if(!window.EyeDropper)throw new Error('EyeDropper is not available in this browser.');const {sRGBHex}=await new EyeDropper().open(),color=normalizeHex(sRGBHex);if(!pickedColors.includes(color)){pickedColors.push(color);saveHistory()}if(quickPick)copy(color);renderAll()}catch(error){if(error.message&&!/cancel/i.test(error.message))showToast(error.message)}finally{document.body.classList.remove('picking')}};
+    $('#clear-history').onclick=()=>{pickedColors=[];saveHistory();renderAll()};$('#save-history-palette').onclick=saveRecentAsPalette;$('#quick-export-btn').onclick=()=>exportPalette(quickExportFormat);
+    $('#new-palette').onclick=()=>openPaletteEditor();$('#cancel-palette').onclick=()=>$('#palette-editor').classList.add('hide');$('#palette-editor').onsubmit=savePaletteFromEditor;$('#new-folder').onclick=startFolderEditor;$('#folder-filter').onchange=renderLibrary;
+    $('#palette-library').onclick=e=>{const button=e.target.closest('button'),card=e.target.closest('.palette-card');if(!button||!card)return;const p=paletteById(card.dataset.id);if(button.dataset.action==='load'){state.activePaletteId=p.id;saveState();renderAll();switchView('home');showToast(`${p.name} is now active.`,true)}else if(button.dataset.action==='edit')openPaletteEditor(p);else if(button.dataset.action==='delete'){if(button.dataset.confirm){state.palettes=state.palettes.filter(x=>x.id!==p.id);if(state.activePaletteId===p.id)state.activePaletteId=state.palettes[0]?.id||null;saveState();renderAll()}else{button.dataset.confirm='1';button.textContent='Confirm'}}};
+    $$('#generator-tabs button').forEach(b=>b.onclick=()=>{generatorMode=b.dataset.generator;renderGenerator()});$('#lab-color').oninput=renderGenerator;$('#harmony-type').onchange=renderGenerator;$('#gradient-angle').oninput=renderGenerator;$('#add-generated').onclick=addGenerated;
+    $('#extract-page').onclick=extractPage;$('#image-input').onchange=e=>{if(e.target.files[0])extractImage(e.target.files[0])};$('#save-extraction').onclick=saveExtraction;
+    const syncContrast=(kind,value)=>{const input=$(`#${kind}-hex`);input.value=normalizeHex(value);renderAccessibility()};$('#foreground-color').oninput=e=>syncContrast('foreground',e.target.value);$('#background-color').oninput=e=>syncContrast('background',e.target.value);['foreground','background'].forEach(k=>{$(`#${k}-hex`).oninput=renderAccessibility});$('#swap-contrast').onclick=()=>{const a=$('#foreground-hex').value;$('#foreground-hex').value=$('#background-hex').value;$('#background-hex').value=a;renderAccessibility()};$('#vision-mode').onchange=renderAccessibility;
+    $('#export-palette').onchange=renderExport;$$('#export-formats button').forEach(b=>b.onclick=()=>exportPalette(b.dataset.format,$('#export-palette').value||null));$('#auto-tokens').onclick=autoTokens;
+    $('#quickpick-input').checked=quickPick;$('#quickpick-input').onchange=e=>{quickPick=e.target.checked;localStorage.setItem('quickPick',quickPick)};$('#quick-export-format').onchange=e=>{if(PRO_FORMATS.has(e.target.value)&&!requirePro(`${e.target.value.toUpperCase()} export`))return;quickExportFormat=e.target.value;localStorage.setItem('palettePilotExportFormat',quickExportFormat);syncQuickExport()};
+    $('#backup-data').onclick=()=>{if(!requirePro('Local backup'))return;download(new Blob([JSON.stringify({version:2,workspace:state,history:pickedColors,quickPick,quickExportFormat},null,2)],{type:'application/json'}),`PalettePilot-Backup-${new Date().toISOString().slice(0,10)}.json`)};$('#import-data').onchange=e=>importBackup(e.target.files[0]);
+    $$('.pro-feature').forEach(el=>el.addEventListener('click',e=>{if(!isProActive){e.preventDefault();e.stopPropagation();requirePro(el.dataset.feature||'This feature')}}));$$('.pro-only').forEach(el=>el.addEventListener('click',e=>{if(!isProActive){e.preventDefault();e.stopPropagation();requirePro('This feature')}}));
+    $('#activate-pro').onclick=activateLicense;$('#license-key-input').oninput=e=>{e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g,'');licenseMessage()};$('#license-key-input').onkeydown=e=>{if(e.key==='Enter')activateLicense()};$('#get-pro').onclick=()=>chrome.tabs.create({url:PRO_URL});$('#purchase-details').onclick=async()=>{try{const stored=await storageGet(LICENSE_KEY),result=await api('/v1/billing/portal',{licenseKey:stored[LICENSE_KEY]});chrome.tabs.create({url:result.url})}catch(error){licenseMessage(error.message)}};$('#transfer-pro').onclick=openLicenseTransfer;$('#copy-transfer-license').onclick=copyTransferLicense;$('#confirm-transfer').onclick=confirmLicenseTransfer;$('#close-transfer').onclick=closeLicenseTransfer;$('#cancel-transfer').onclick=closeLicenseTransfer;$('#transfer-license-modal').onclick=e=>{if(e.target===$('#transfer-license-modal'))closeLicenseTransfer()};$('#dismiss-pro-welcome').onclick=hideProWelcome;$('#pro-welcome').onclick=e=>{if(e.target===$('#pro-welcome'))hideProWelcome()};document.addEventListener('keydown',e=>{const welcome=$('#pro-welcome');if(!welcome.classList.contains('hide')){if(e.key==='Escape')hideProWelcome();if(e.key==='Tab'){e.preventDefault();$('#dismiss-pro-welcome').focus()}return}if(e.key==='Escape')closeLicenseTransfer()});
+    $('#open-side-panel').onclick=toggleSidePanel;
+}
+function syncQuickExport(){if(!isProActive&&PRO_FORMATS.has(quickExportFormat))quickExportFormat='txt';$('#quick-export-format').value=quickExportFormat;$('#quick-export-label').textContent=`Export as ${quickExportFormat.toUpperCase()}`;localStorage.setItem('palettePilotExportFormat',quickExportFormat)}
+function importBackup(file){if(!file||!requirePro('Local backup and import'))return;const reader=new FileReader();reader.onload=()=>{try{const data=JSON.parse(reader.result);if(!data.workspace||!Array.isArray(data.workspace.palettes)||!Array.isArray(data.workspace.folders))throw new Error();const folders=data.workspace.folders.filter(f=>typeof f.id==='string'&&typeof f.name==='string').map(f=>({id:f.id,name:f.name.slice(0,40)}));if(!folders.length)folders.push({id:'default',name:'My Palettes'});const palettes=data.workspace.palettes.filter(p=>typeof p.id==='string'&&typeof p.name==='string'&&Array.isArray(p.colors)).map(p=>({id:p.id,name:p.name.slice(0,48),folderId:folders.some(f=>f.id===p.folderId)?p.folderId:folders[0].id,colors:uniqueColors(p.colors)}));state={...defaultState(),...data.workspace,folders,palettes,semanticTokens:{...defaultState().semanticTokens,...data.workspace.semanticTokens}};pickedColors=uniqueColors(data.history||[]);quickPick=!!data.quickPick;quickExportFormat=data.quickExportFormat||'txt';saveState();saveHistory();renderAll();syncQuickExport();showToast('Backup imported.',true)}catch{showToast('That is not a valid Palette Pilot backup.')}};reader.readAsText(file)}
 
-// Function to display the picked colors
-const showColors = () => {
-    colorList.innerHTML = pickedColors.map((color) => 
-        `
-            <li class="color">
-                <span class="rect" style="background: ${color}; border: 1px solid ${color === '#ffffff' ? '#ccc' : color}"></span>
-                <span class="value hex" data-color="${color}">${color}</span>
-            </li>
-        
-        `
-    ).join('');
-
-    const colorElements = document.querySelectorAll('.color');
-    colorElements.forEach((li) => {
-        li.addEventListener('click', (e) => {
-            const color = e.currentTarget.querySelector(".value.hex").dataset.color;
-            if(currentPopup){
-                document.body.removeChild(currentPopup);
-            }
-            const popup = createColorPopup(color);
-            document.body.appendChild(popup);
-            currentPopup = popup;
-        });
-    });
-
-    const pickedColorsContainer = document.querySelector('.colors-list');
-    pickedColorsContainer.classList.toggle('hide', pickedColors.length === 0);
-};
-
-// Function to convert a hex color code to rgb format
-const hexToRgb = (hex) => {
-    const bigint = parseInt(hex.slice(1), 16);
-    const r = (bigint >> 16) & 255;
-    const g = (bigint >> 8) & 255;
-    const b = bigint & 255;
-    return `rgb(${r},${g},${b})`;
-};
-
-// Function to activate the eye dropper color picker
-const activateEyeDropper = async () => {
-    document.body.classList.add('picking');
-    document.body.style.display = 'none';
-    try {
-        // Opening the eye dropper and retrieving the selected color
-        const { sRGBHex } = await new EyeDropper().open();
-
-        if(!pickedColors.includes(sRGBHex)){
-            pickedColors.push(sRGBHex);
-            localStorage.setItem('colors-list', JSON.stringify(pickedColors));
-        }
-
-        if(quickPick){
-            try{
-                await navigator.clipboard.writeText(sRGBHex);
-            }catch{
-                // Failed to copy color code
-            }
-        }
-
-        showColors();
-    } catch (error) {
-        // Failed to copy color code
-    } finally{
-        document.body.classList.remove('picking');
-        document.body.style.display = 'block';
-    }
-};
-
-// Function to clear all picked colors
-const clearAllColors = () => {
-    pickedColors = [];
-    localStorage.removeItem('colors-list');
-    showColors();
-};
-
-// Event listeners for buttons
-clearBtn.addEventListener('click', clearAllColors);
-pickerBtn.addEventListener('click', activateEyeDropper);
-exportBtn.addEventListener('click', exportColors);
-
-// Display picked colors on document load
-showColors();
-
-document.querySelector('.toggle-settings').addEventListener('click', () => {
-    document.querySelector('.picker').classList.toggle('hide');
-    document.querySelector('.colors-list').classList.toggle('hide');
-    document.querySelector('.settings-pane').classList.toggle('hide');
-    document.querySelector('.toggle-settings').classList.toggle('active');
-});
+configureSidePanelButton();
+bindEvents();
+renderGenerator();
+renderAll();
+syncQuickExport();
+void validateLicense();
