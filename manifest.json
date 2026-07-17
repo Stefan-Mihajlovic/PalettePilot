@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Palette Pilot",
     "description": "PalettePilot - The ONE color picker extension you didn't know you needed!",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "permissions": ["activeTab", "scripting", "sidePanel", "storage"],
     "host_permissions": ["https://tvm-licensing-api-prod.optiflowzoffice.workers.dev/*"],
     "action": {

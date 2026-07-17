@@ -17,6 +17,7 @@
         <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7.5 11 4.5 4.5 4.5-4.5"/><path d="M4 20h16"/></symbol>
         <symbol id="icon-panel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M15 4v16"/></symbol>
         <symbol id="icon-close" viewBox="0 0 24 24"><path d="m5 5 14 14M19 5 5 19"/></symbol>
+        <symbol id="icon-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
         <symbol id="icon-settings" viewBox="0 0 24 24"><path d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.3a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4A2 2 0 0 0 4 9.9l.2.1a2 2 0 0 1 1 1.7v.6a2 2 0 0 1-1 1.7l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.3a2 2 0 0 1 1 1.7v.2a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.3a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.7v-.6a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.3a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2Z"/><circle cx="12" cy="12" r="3"/></symbol>
         <symbol id="icon-eyedropper" viewBox="0 0 24 24"><path d="m18.5 2.8 2.7 2.7-9.7 9.7-3.7.9.9-3.7z"/><path d="m14.8 6.5 2.7 2.7M3 21l5.7-5.7"/></symbol>
         <symbol id="icon-file-download" viewBox="0 0 24 24"><path d="M5 3h9l5 5v13H5z"/><path d="M14 3v5h5M12 11v6M9.5 14.5 12 17l2.5-2.5"/></symbol>
@@ -27,7 +28,7 @@
     <main class="app-shell">
         <div class="app-topbar">
             <header class="app-header">
-                <div class="brand"><img src="icons/icon128.png" alt="Palette Pilot"><h1>PalettePilot</h1><span id="pro-badge" class="pro-badge hide">Pro</span></div>
+                <div class="brand"><img src="icons/icon128.png" alt="Palette Pilot"><h1>Palette <span>Pilot</span></h1><span id="pro-badge" class="pro-badge hide">Pro</span></div>
                 <div class="header-actions">
                     <button id="open-side-panel" class="icon-button pro-only" type="button" title="Open side-panel workspace" aria-label="Open side-panel workspace"><svg><use href="#icon-panel"></use></svg></button>
                     <button id="settings-button" class="icon-button" type="button" title="Settings" aria-label="Settings"><svg><use href="#icon-settings"></use></svg></button>
@@ -47,25 +48,19 @@
 
         <section class="workspace-view active" data-view="home">
             <div class="hero-actions">
-                <button id="picker-btn" class="primary-action" type="button"><svg class="action-icon"><use href="#icon-eyedropper"></use></svg><span><strong>Pick a Color</strong><small>From anywhere on screen</small></span></button>
+                <button id="picker-btn" class="primary-action" type="button"><svg class="action-icon"><use href="#icon-eyedropper"></use></svg><span><strong>Pick a color</strong><small>From anywhere on screen</small></span></button>
                 <button id="quick-export-btn" class="primary-action secondary" type="button"><svg class="action-icon"><use href="#icon-file-download"></use></svg><span><strong id="quick-export-label">Export as TXT</strong><small>Recent colors</small></span></button>
             </div>
 
             <section class="content-card history-card">
-                <div class="section-heading"><div><span class="eyebrow">Color stream</span><h2>Recent Colors</h2></div><div class="heading-actions"><span id="history-limit" class="limit-pill">Latest 6 on Free</span><button id="clear-history" class="text-button" type="button">Clear</button></div></div>
+                <div class="section-heading"><h2>Color <span>History</span></h2><div class="heading-actions"><span id="history-limit" class="limit-pill">Latest 6 on Free</span><button id="clear-history" class="text-button" type="button">Clear</button></div></div>
                 <div id="empty-history" class="empty-state">Pick your first color to start building a palette.</div>
                 <ul id="recent-colors" class="swatch-grid"></ul>
             </section>
 
             <section class="content-card current-palette-card">
-                <div class="section-heading"><div><span class="eyebrow">Saved palette</span><h2 id="home-palette-name">My Palette</h2></div><button id="save-history-palette" class="small-button" type="button">Save recent</button></div>
+                <div class="section-heading"><h2>Extracted <span>Palette</span><span id="home-palette-name" class="visually-hidden">My Palette</span></h2><button id="save-history-palette" class="small-button" type="button">Save recent</button></div>
                 <div id="home-palette-strip" class="palette-strip empty"><span>One saved palette is included on Free.</span></div>
-            </section>
-
-            <section class="quick-tools">
-                <button type="button" data-view-link="create"><svg><use href="#icon-sparkles"></use></svg><strong>Generate</strong><small>Shades, harmonies & themes</small></button>
-                <button type="button" data-view-link="extract"><svg><use href="#icon-extract"></use></svg><strong>Extract</strong><small>Page or image palettes</small></button>
-                <button type="button" data-view-link="accessibility"><svg><use href="#icon-access"></use></svg><strong>Check</strong><small>Contrast & simulations</small></button>
             </section>
         </section>
 
@@ -79,14 +74,14 @@
                 <input id="palette-id" type="hidden">
                 <label>Name<input id="palette-name" type="text" maxlength="48" placeholder="Brand palette" required></label>
                 <label>Folder<select id="palette-folder"></select></label>
-                <label>Colors<input id="palette-colors" type="text" placeholder="#FF006A, #210511"></label>
+                <div class="palette-colors-field"><span>Colors</span><div class="palette-color-editor"><div id="palette-color-chips" class="palette-color-chips"></div><label class="palette-color-add" title="Add color"><input id="palette-color-picker" type="color" value="#ff006a" aria-label="Add a color"><span aria-hidden="true">+</span></label></div><input id="palette-colors" type="hidden"></div>
                 <div class="form-actions"><button class="small-button" type="submit">Save palette</button><button id="cancel-palette" class="outline-button" type="button">Cancel</button></div>
             </form>
             <div id="palette-library" class="palette-library"></div>
         </section>
 
         <section class="workspace-view" data-view="create">
-            <div class="view-heading"><div><span class="eyebrow">Color lab</span><h2>Create with Color</h2></div><span class="pro-chip">Pro tools</span></div>
+            <div class="view-heading"><div><span class="eyebrow">Color lab</span><h2>Create with Color</h2></div><span class="pro-chip">Pro</span></div>
             <section class="content-card lab-controls">
                 <label class="color-control"><input id="lab-color" type="color" value="#ff006a"><span><small>Base color</small><strong id="lab-color-value">#FF006A</strong></span></label>
                 <div class="segmented-control" id="generator-tabs">
@@ -149,14 +144,14 @@
             <div id="export-formats" class="export-formats">
                 <button data-format="txt" type="button"><strong>TXT</strong><small>Free</small></button>
                 <button data-format="css" type="button"><strong>CSS</strong><small>Free</small></button>
-                <button data-format="csv" data-pro-format type="button"><strong>CSV</strong><small>Pro</small></button>
-                <button data-format="scss" data-pro-format type="button"><strong>SCSS</strong><small>Pro</small></button>
-                <button data-format="tailwind" data-pro-format type="button"><strong>Tailwind</strong><small>Pro</small></button>
-                <button data-format="json" data-pro-format type="button"><strong>JSON</strong><small>Pro</small></button>
-                <button data-format="svg" data-pro-format type="button"><strong>SVG</strong><small>Pro</small></button>
-                <button data-format="png" data-pro-format type="button"><strong>PNG</strong><small>Pro</small></button>
-                <button data-format="ase" data-pro-format type="button"><strong>ASE</strong><small>Pro</small></button>
-                <button data-format="pdf" data-pro-format type="button"><strong>PDF</strong><small>Pro</small></button>
+                <button class="disabled" data-format="csv" data-pro-format type="button" disabled><svg class="export-lock"><use href="#icon-lock"></use></svg><strong>CSV</strong><small>Pro</small></button>
+                <button class="disabled" data-format="scss" data-pro-format type="button" disabled><svg class="export-lock"><use href="#icon-lock"></use></svg><strong>SCSS</strong><small>Pro</small></button>
+                <button class="disabled" data-format="tailwind" data-pro-format type="button" disabled><svg class="export-lock"><use href="#icon-lock"></use></svg><strong>Tailwind</strong><small>Pro</small></button>
+                <button class="disabled" data-format="json" data-pro-format type="button" disabled><svg class="export-lock"><use href="#icon-lock"></use></svg><strong>JSON</strong><small>Pro</small></button>
+                <button class="disabled" data-format="svg" data-pro-format type="button" disabled><svg class="export-lock"><use href="#icon-lock"></use></svg><strong>SVG</strong><small>Pro</small></button>
+                <button class="disabled" data-format="png" data-pro-format type="button" disabled><svg class="export-lock"><use href="#icon-lock"></use></svg><strong>PNG</strong><small>Pro</small></button>
+                <button class="disabled" data-format="ase" data-pro-format type="button" disabled><svg class="export-lock"><use href="#icon-lock"></use></svg><strong>ASE</strong><small>Pro</small></button>
+                <button class="disabled" data-format="pdf" data-pro-format type="button" disabled><svg class="export-lock"><use href="#icon-lock"></use></svg><strong>PDF</strong><small>Pro</small></button>
             </div>
             <section class="content-card pro-feature token-studio" data-feature="Semantic color tokens">
                 <div class="section-heading"><div><span class="eyebrow">Design system</span><h2>Semantic Tokens</h2></div><button id="auto-tokens" class="small-button" type="button">Auto map</button></div>
