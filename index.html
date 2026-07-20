@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -23,6 +23,8 @@
         <symbol id="icon-file-download" viewBox="0 0 24 24"><path d="M5 3h9l5 5v13H5z"/><path d="M14 3v5h5M12 11v6M9.5 14.5 12 17l2.5-2.5"/></symbol>
         <symbol id="icon-page" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 8h18M7 12h4M7 16h7"/></symbol>
         <symbol id="icon-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m5 18 5-5 3 3 2-2 4 4"/></symbol>
+        <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M12 16V4"/><path d="m7.5 8.5 4.5-4.5 4.5 4.5"/><path d="M4 14v6h16v-6"/></symbol>
+        <symbol id="icon-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></symbol>
         <symbol id="icon-swap" viewBox="0 0 24 24"><path d="M4 8h14M15 5l3 3-3 3M20 16H6M9 13l-3 3 3 3"/></symbol>
     </svg>
     <main class="app-shell">
@@ -31,7 +33,7 @@
                 <div class="brand"><img src="icons/icon128.png" alt="Palette Pilot"><h1>Palette <span>Pilot</span></h1><span id="pro-badge" class="pro-badge hide">Pro</span></div>
                 <div class="header-actions">
                     <button id="open-side-panel" class="icon-button pro-only" type="button" title="Open side-panel workspace" aria-label="Open side-panel workspace"><svg><use href="#icon-panel"></use></svg></button>
-                    <button id="settings-button" class="icon-button" type="button" title="Settings" aria-label="Settings"><svg><use href="#icon-settings"></use></svg></button>
+                    <button id="settings-button" class="icon-button" type="button" title="Settings" aria-label="Settings" aria-pressed="false"><svg><use href="#icon-settings"></use></svg></button>
                 </div>
             </header>
             <nav class="workspace-nav" aria-label="Workspace">
@@ -70,6 +72,10 @@
                 <select id="folder-filter" aria-label="Palette folder"></select>
                 <button id="new-folder" class="outline-button pro-only" type="button">+ Folder</button>
             </div>
+            <div class="palette-management-bar">
+                <span>Drag palettes or colors to reorder</span>
+                <div><button id="undo-palette" type="button" disabled>Undo</button><button id="redo-palette" type="button" disabled>Redo</button></div>
+            </div>
             <form id="palette-editor" class="content-card compact-form hide">
                 <input id="palette-id" type="hidden">
                 <label>Name<input id="palette-name" type="text" maxlength="48" placeholder="Brand palette" required></label>
@@ -87,11 +93,25 @@
                 <div class="segmented-control" id="generator-tabs">
                     <button class="active" data-generator="shades" type="button">Shades</button><button data-generator="harmony" type="button">Harmony</button><button data-generator="gradient" type="button">Gradient</button><button data-generator="theme" type="button">Themes</button>
                 </div>
-                <div id="harmony-options" class="inline-options hide"><select id="harmony-type"><option value="complementary">Complementary</option><option value="analogous">Analogous</option><option value="triadic">Triadic</option><option value="split">Split complementary</option><option value="tetradic">Tetradic</option></select></div>
-                <div id="gradient-options" class="inline-options hide"><label>Angle <input id="gradient-angle" type="range" min="0" max="360" value="120"><span id="gradient-angle-value">120°</span></label></div>
             </section>
             <section class="content-card result-card pro-feature" data-feature="Color generation">
                 <div class="section-heading"><h2 id="generator-title">Shades & Tints</h2><button id="add-generated" class="small-button" type="button">Add to palette</button></div>
+                <div id="harmony-options" class="inline-options hide"><select id="harmony-type"><option value="complementary">Complementary</option><option value="analogous">Analogous</option><option value="triadic">Triadic</option><option value="split">Split complementary</option><option value="tetradic">Tetradic</option></select></div>
+                <div id="gradient-options" class="gradient-options hide">
+                    <div class="gradient-toolbar">
+                        <label>Type<select id="gradient-type"><option value="linear">Linear</option><option value="radial">Radial</option><option value="conic">Angular</option></select></label>
+                        <div id="gradient-angle-control"><span class="gradient-control-label">Angle</span><div><input id="gradient-angle" type="range" min="0" max="360" value="120"><label class="gradient-angle-number"><input id="gradient-angle-number" type="number" min="0" max="360" value="120" aria-label="Gradient angle"><b>°</b></label></div></div>
+                    </div>
+                    <div class="gradient-track-wrap">
+                        <div id="gradient-track" class="gradient-track" aria-label="Gradient stops. Click the line to add a stop."><div id="gradient-stop-handles" class="gradient-stop-handles"></div></div>
+                        <small>Click the gradient line to add a stop</small>
+                    </div>
+                    <div class="gradient-stop-editor">
+                        <label class="gradient-stop-color"><input id="gradient-stop-color" type="color" value="#FF006A"><span><small>Selected stop</small><strong id="gradient-stop-value">#FF006A</strong></span></label>
+                        <label class="gradient-position-field"><small>Position</small><span><input id="gradient-stop-position" type="number" min="0" max="100" value="0"><b>%</b></span></label>
+                        <button id="remove-gradient-stop" class="gradient-remove-stop" type="button" aria-label="Remove selected gradient stop">−</button>
+                    </div>
+                </div>
                 <div id="generator-preview"></div>
             </section>
         </section>
@@ -100,10 +120,11 @@
             <div class="view-heading"><div><span class="eyebrow">Capture inspiration</span><h2>Palette Extraction</h2></div><span class="pro-chip">Pro</span></div>
             <div class="extract-grid">
                 <section class="content-card extract-card pro-feature" data-feature="Page palette extraction">
-                    <svg class="tool-icon"><use href="#icon-page"></use></svg><h3>Current Page</h3><p>Find dominant CSS colors and existing color tokens on the active page.</p><button id="extract-page" class="small-button" type="button">Extract page</button>
+                    <svg class="tool-icon"><use href="#icon-page"></use></svg><h3>Current Page</h3><p>Find dominant CSS colors and existing color tokens on the active page.</p><button id="extract-page" class="small-button extract-action-button" type="button"><svg><use href="#icon-sparkles"></use></svg><span>Extract page</span></button>
                 </section>
-                <section class="content-card extract-card pro-feature" data-feature="Image palette extraction">
-                    <svg class="tool-icon"><use href="#icon-image"></use></svg><h3>Image</h3><p>Analyze an image locally and find its dominant colors.</p><label class="small-button file-button">Choose image<input id="image-input" type="file" accept="image/*"></label>
+                <section id="image-drop-zone" class="content-card extract-card image-drop-zone pro-feature" data-feature="Image palette extraction" tabindex="0" aria-label="Drop or paste an image to extract its colors">
+                    <svg class="tool-icon"><use href="#icon-image"></use></svg><h3>Image</h3><p>Analyze an image locally and find its dominant colors.</p><div class="drop-hint"><strong>Drop or paste</strong><small><span id="paste-shortcut">Ctrl + V</span> while Extract is open</small></div>
+                    <label class="small-button file-button extract-action-button"><svg><use href="#icon-upload"></use></svg><span>Choose image</span><input id="image-input" type="file" accept="image/*"></label>
                 </section>
             </div>
             <section id="extraction-results-card" class="content-card hide">
@@ -119,7 +140,7 @@
             <section class="content-card contrast-builder">
                 <div class="contrast-inputs">
                     <label><small>Text</small><span><input id="foreground-color" type="color" value="#ffffff"><input id="foreground-hex" type="text" value="#FFFFFF" maxlength="7"></span></label>
-                    <button id="swap-contrast" type="button" aria-label="Swap colors"><svg><use href="#icon-swap"></use></svg></button>
+                    <button id="swap-contrast" type="button" aria-label="Swap colors"><svg viewBox="0 0 24 24" aria-hidden="true"><g class="swap-arrow swap-arrow-top"><path d="M3 8h15"/><path d="m15 5 3 3-3 3"/></g><g class="swap-arrow swap-arrow-bottom"><path d="M21 16H6"/><path d="m9 13-3 3 3 3"/></g></svg></button>
                     <label><small>Background</small><span><input id="background-color" type="color" value="#5a042b"><input id="background-hex" type="text" value="#5A042B" maxlength="7"></span></label>
                 </div>
                 <div id="contrast-sample" class="contrast-sample"><strong>Readable color starts here.</strong><span>Palette Pilot checks every combination.</span></div>
@@ -162,8 +183,14 @@
         <section class="workspace-view" data-view="settings">
             <div class="view-heading"><div><span class="eyebrow">Preferences</span><h2>Settings</h2></div></div>
             <section class="content-card settings-card">
+                <div class="setting-row"><div><h3>Light mode</h3><p>Use a clean, bright theme throughout Palette Pilot.</p></div><label class="switch"><input id="theme-input" type="checkbox" role="switch" aria-label="Light mode"><span></span></label></div>
                 <div class="setting-row"><div><h3>Quick Pick</h3><p>Copy the color code as soon as it is picked.</p></div><label class="switch"><input id="quickpick-input" type="checkbox"><span></span></label></div>
                 <div class="setting-row"><div><h3>Quick export format</h3><p>TXT and CSS are free. Pro adds more export formats for your colors.</p></div><select id="quick-export-format"><option value="txt">TXT</option><option value="css">CSS</option><option value="csv" data-pro-format>CSV · Pro</option><option value="scss" data-pro-format>SCSS · Pro</option><option value="tailwind" data-pro-format>Tailwind · Pro</option><option value="json" data-pro-format>JSON · Pro</option></select></div>
+            </section>
+            <section class="content-card shortcuts-card pro-feature" data-feature="Keyboard shortcuts">
+                <div class="section-heading"><div><span class="eyebrow">Faster workflow</span><h2>Keyboard Shortcuts</h2></div><div class="shortcut-heading-actions"><span id="shortcut-platform" class="limit-pill">Windows</span><button id="remap-shortcuts" class="shortcut-remap" type="button">Remap</button></div></div>
+                <p class="shortcut-note">Works browser-wide, even when Palette Pilot is closed. Remap in browser settings.</p>
+                <div id="keyboard-shortcuts" class="shortcut-list"></div>
             </section>
             <section class="content-card pro-feature backup-card" data-feature="Local backup and import">
                 <div><h3>Local backup & import</h3><p>Move palettes, folders, tokens and preferences between devices.</p></div><div class="form-actions"><button id="backup-data" class="small-button" type="button">Download backup</button><label class="outline-button file-button">Import<input id="import-data" type="file" accept="application/json,.json"></label></div>

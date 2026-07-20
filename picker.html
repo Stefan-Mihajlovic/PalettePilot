@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Palette Pilot Screen Picker</title>
+    <link rel="stylesheet" href="picker.css">
+</head>
+<body>
+    <main id="picker-shell">
+        <header><div><img src="icons/icon48.png" alt=""><span><strong>Palette Pilot</strong><small>Screen picker</small></span></div><p>Click the captured page to pick a color · Esc to cancel</p></header>
+        <section id="stage" aria-label="Captured page color picker">
+            <img id="screenshot" alt="Captured browser tab">
+            <canvas id="sample-canvas" hidden></canvas>
+            <aside id="loupe"><canvas width="17" height="13"></canvas><div><i></i><code>#000000</code></div></aside>
+            <div id="loading">Preparing screen picker…</div>
+        </section>
+        <div id="picker-status" role="status" aria-live="polite"></div>
+    </main>
+    <script src="picker.js"></script>
+</body>
+</html>

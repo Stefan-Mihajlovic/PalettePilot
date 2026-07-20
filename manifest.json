@@ -2,9 +2,30 @@
     "manifest_version": 3,
     "name": "Palette Pilot",
     "description": "PalettePilot - The ONE color picker extension you didn't know you needed!",
-    "version": "2.0.1",
+    "version": "2.1.0",
     "permissions": ["activeTab", "scripting", "sidePanel", "storage"],
     "host_permissions": ["https://tvm-licensing-api-prod.optiflowzoffice.workers.dev/*"],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "commands": {
+        "pick-color": {
+            "suggested_key": {"default": "Alt+Shift+P", "mac": "Command+Shift+P"},
+            "description": "Palette Pilot: Pick a color"
+        },
+        "open-library": {
+            "suggested_key": {"default": "Alt+Shift+L", "mac": "Command+Shift+L"},
+            "description": "Palette Pilot: Open Library"
+        },
+        "save-recent": {
+            "suggested_key": {"default": "Alt+Shift+S", "mac": "Command+Shift+S"},
+            "description": "Palette Pilot: Save recent colors"
+        },
+        "open-export": {
+            "suggested_key": {"default": "Alt+Shift+E", "mac": "Command+Shift+X"},
+            "description": "Palette Pilot: Open Export"
+        }
+    },
     "action": {
         "default_popup": "index.html",
         "default_icon": {

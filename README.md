@@ -15,6 +15,7 @@ Palette Pilot is a local-first browser color workspace. Version 2 keeps the fast
 - HEX, RGB, HSL, and OKLCH values
 - Six recent colors
 - Quick copy
+- Persistent dark and light appearance
 - One saved palette
 - Basic contrast checking
 - TXT and CSS export
@@ -22,8 +23,9 @@ Palette Pilot is a local-first browser color workspace. Version 2 keeps the fast
 ## Pro — $9.99 lifetime
 
 - Unlimited named palettes and folders
-- Page and image palette extraction
-- Shade, tint, harmony, gradient, and light/dark theme generation
+- Page extraction plus image choose, paste, and drag-and-drop
+- Shade, tint, harmony, multi-stop linear/radial/angular gradient, and light/dark theme generation
+- Pro Edge/Chrome-wide keyboard shortcuts with platform-aware defaults and remapping through browser extension settings
 - Complete accessibility studio and color-blindness simulation
 - Semantic color tokens
 - Side-panel workspace
