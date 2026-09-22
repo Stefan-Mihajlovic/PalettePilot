@@ -3,7 +3,7 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const PALETTE_PRODUCT = 'palette_pilot_pro';
 const API_URL = 'https://tvm-licensing-api-prod.optiflowzoffice.workers.dev';
 const PRO_URL = 'https://stefanmihajlovic.com/palette-pilot/#pro';
-const FREE_HISTORY_LIMIT = 6;
+const FREE_HISTORY_LIMIT = 12;
 const STATE_KEY = 'palettePilotWorkspaceV2';
 const THEME_KEY = 'palettePilotTheme';
 const LICENSE_KEY = 'palettePilotProLicenseKey';

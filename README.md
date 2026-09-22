@@ -13,7 +13,7 @@ Palette Pilot is a local-first browser color workspace. Version 2 keeps the fast
 
 - Unlimited color picking
 - HEX, RGB, HSL, and OKLCH values
-- Six recent colors
+- Twelve recent colors
 - Quick copy
 - Persistent dark and light appearance
 - One saved palette
